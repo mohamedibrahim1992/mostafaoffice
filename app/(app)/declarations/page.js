@@ -56,7 +56,7 @@ function OverdueAmountsModal({ items, onClose }) {
     <Modal open onClose={onClose} title="مبالغ إقرارات متأخرة" wide>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-2">
-          <span className="text-sm text-slate-600 dark:text-slate-300">إجمالي المبالغ المتأخرة</span>
+          <span className="text-sm text-slate-600 dark:text-slate-300">إجمالي المبالغ المستحقة</span>
           <span className="font-bold text-rose-600">{fmtMoney(total)}</span>
         </div>
         <div className="overflow-x-auto">
@@ -66,6 +66,7 @@ function OverdueAmountsModal({ items, onClose }) {
                 <th className="px-3 py-2 text-right">العميل</th>
                 <th className="px-3 py-2 text-right">نوع الإقرار</th>
                 <th className="px-3 py-2 text-right">الفترة</th>
+                <th className="px-3 py-2 text-right">الحالة</th>
                 <th className="px-3 py-2 text-right">الموعد النهائي</th>
                 <th className="px-3 py-2 text-right">المبلغ المتبقي</th>
               </tr>
@@ -76,11 +77,12 @@ function OverdueAmountsModal({ items, onClose }) {
                   <td className="px-3 py-1.5 font-medium">{d.clientName}</td>
                   <td className="px-3 py-1.5">{d.type}</td>
                   <td className="px-3 py-1.5">{d.period}</td>
+                  <td className="px-3 py-1.5"><Badge color={d.status === "متأخر" ? "red" : "amber"}>{d.status}</Badge></td>
                   <td className="px-3 py-1.5">{fmtDate(d.deadline)}</td>
                   <td className="px-3 py-1.5 font-semibold text-rose-600">{fmtMoney(declarationRemaining(d))}</td>
                 </tr>
               ))}
-              {items.length === 0 && <tr><td colSpan={5} className="text-center py-6 text-slate-400">لا يوجد مبالغ متأخرة حاليًا</td></tr>}
+              {items.length === 0 && <tr><td colSpan={6} className="text-center py-6 text-slate-400">لا يوجد مبالغ مستحقة حاليًا</td></tr>}
             </tbody>
           </table>
         </div>
@@ -95,6 +97,7 @@ export default function DeclarationsPage() {
   const [fClient, setFClient] = useState("");
   const [fType, setFType] = useState("");
   const [fEntity, setFEntity] = useState("");
+  const [fStatus, setFStatus] = useState("");
   const [fMonth, setFMonth] = useState("");
   const [sort, setSort] = useState({ key: "deadline", dir: "asc" });
   const [payModal, setPayModal] = useState(null);
@@ -106,17 +109,19 @@ export default function DeclarationsPage() {
     (!fClient || d.clientId === fClient) &&
     (!fType || d.type === fType) &&
     (!fEntity || d.entityType === fEntity) &&
+    (!fStatus || d.status === fStatus) &&
     (!fMonth || d.period.includes(fMonth))
   );
   const rows = sortRows(filtered, sort);
 
-  const lateWithAmounts = all.filter((d) => d.status === "متأخر" && declarationRemaining(d) > 0);
+  // مبالغ مستحقة = أي إقرار (متأخر أو قيد الانتظار) لسه عليه فلوس متبقية، بغض النظر عن حالة الإنجاز
+  const outstandingAmounts = all.filter((d) => d.status !== "مكتمل" && declarationRemaining(d) > 0);
   const counts = {
     pending: all.filter((d) => d.status === "قيد الانتظار").length,
     late: all.filter((d) => d.status === "متأخر").length,
     done: all.filter((d) => d.status === "مكتمل").length,
     all: all.length,
-    lateAmount: lateWithAmounts.reduce((s, d) => s + declarationRemaining(d), 0),
+    outstandingAmount: outstandingAmounts.reduce((s, d) => s + declarationRemaining(d), 0),
   };
 
   const toggleComplete = async (d) => {
@@ -147,7 +152,7 @@ export default function DeclarationsPage() {
         <Card className="p-4"><div className="text-xs text-slate-500">الإجمالي</div><div className="font-bold text-lg text-slate-800 dark:text-slate-100">{counts.all}</div></Card>
         <Card className="p-4 cursor-pointer hover:ring-2 hover:ring-rose-300 transition" onClick={() => setShowOverdueAmounts(true)}>
           <div className="text-xs text-slate-500 flex items-center gap-1"><Wallet size={12} /> مبالغ إقرارات متأخرة</div>
-          <div className="font-bold text-lg text-rose-600">{fmtMoney(counts.lateAmount)}</div>
+          <div className="font-bold text-lg text-rose-600">{fmtMoney(counts.outstandingAmount)}</div>
         </Card>
       </div>
 
@@ -160,6 +165,12 @@ export default function DeclarationsPage() {
         </Select>
         <Select label="نوع المنشأة" value={fEntity} onChange={(e) => setFEntity(e.target.value)} className="min-w-[140px]">
           <option value="">الكل</option><option value="فردي">فردي</option><option value="شركة">شركة</option>
+        </Select>
+        <Select label="الحالة" value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="min-w-[140px]">
+          <option value="">الكل</option>
+          <option value="قيد الانتظار">قيد الانتظار</option>
+          <option value="متأخر">متأخر</option>
+          <option value="مكتمل">مكتمل</option>
         </Select>
         <Input label="الشهر/السنة" placeholder="مثال: يناير أو 2025" value={fMonth} onChange={(e) => setFMonth(e.target.value)} className="min-w-[140px]" />
       </Card>
@@ -207,7 +218,7 @@ export default function DeclarationsPage() {
       </Card>
 
       {payModal && <PaymentModal declaration={payModal} onClose={() => setPayModal(null)} onSave={savePayment} />}
-      {showOverdueAmounts && <OverdueAmountsModal items={lateWithAmounts} onClose={() => setShowOverdueAmounts(false)} />}
+      {showOverdueAmounts && <OverdueAmountsModal items={outstandingAmounts} onClose={() => setShowOverdueAmounts(false)} />}
     </div>
   );
 }
