@@ -114,8 +114,8 @@ export default function DeclarationsPage() {
   );
   const rows = sortRows(filtered, sort);
 
-  // مبالغ مستحقة = أي إقرار (متأخر أو قيد الانتظار) لسه عليه فلوس متبقية، بغض النظر عن حالة الإنجاز
-  const outstandingAmounts = all.filter((d) => d.status !== "مكتمل" && declarationRemaining(d) > 0);
+  // مبالغ مستحقة = أي إقرار عليه فلوس متبقية، مهما كانت حالته (متأخر، قيد الانتظار، أو حتى مكتمل ولسه مسدّدش بالكامل)
+  const outstandingAmounts = all.filter((d) => declarationRemaining(d) > 0);
   const counts = {
     pending: all.filter((d) => d.status === "قيد الانتظار").length,
     late: all.filter((d) => d.status === "متأخر").length,
