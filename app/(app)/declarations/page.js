@@ -4,7 +4,7 @@ import { Wallet } from "lucide-react";
 import { useAuth } from "../../../lib/AuthContext";
 import { useData } from "../../../lib/DataContext";
 import { Card, Btn, Select, Input, Badge, Modal, SortableTh } from "../../../components/ui";
-import { fmtDate, fmtMoney, sortRows, generateAllDeclarations, declarationRemaining } from "../../../lib/helpers";
+import { fmtDate, fmtMoney, sortRows, generateAllDeclarations, declarationRemaining, declarationPaid } from "../../../lib/helpers";
 
 function PaymentModal({ declaration, onClose, onSave }) {
   const [amount, setAmount] = useState(declaration.amount ?? "");
@@ -68,7 +68,9 @@ function OverdueAmountsModal({ items, onClose }) {
                 <th className="px-3 py-2 text-right">الفترة</th>
                 <th className="px-3 py-2 text-right">الحالة</th>
                 <th className="px-3 py-2 text-right">الموعد النهائي</th>
-                <th className="px-3 py-2 text-right">المبلغ المتبقي</th>
+                <th className="px-3 py-2 text-right">مبلغ الإقرار</th>
+                <th className="px-3 py-2 text-right">المدفوع</th>
+                <th className="px-3 py-2 text-right">المتبقي</th>
               </tr>
             </thead>
             <tbody>
@@ -79,10 +81,12 @@ function OverdueAmountsModal({ items, onClose }) {
                   <td className="px-3 py-1.5">{d.period}</td>
                   <td className="px-3 py-1.5"><Badge color={d.status === "متأخر" ? "red" : "amber"}>{d.status}</Badge></td>
                   <td className="px-3 py-1.5">{fmtDate(d.deadline)}</td>
+                  <td className="px-3 py-1.5">{fmtMoney(d.amount || 0)}</td>
+                  <td className="px-3 py-1.5 text-emerald-600">{fmtMoney(declarationPaid(d))}</td>
                   <td className="px-3 py-1.5 font-semibold text-rose-600">{fmtMoney(declarationRemaining(d))}</td>
                 </tr>
               ))}
-              {items.length === 0 && <tr><td colSpan={6} className="text-center py-6 text-slate-400">لا يوجد مبالغ مستحقة حاليًا</td></tr>}
+              {items.length === 0 && <tr><td colSpan={8} className="text-center py-6 text-slate-400">لا يوجد مبالغ مستحقة حاليًا</td></tr>}
             </tbody>
           </table>
         </div>

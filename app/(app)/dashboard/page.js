@@ -2,12 +2,43 @@
 import { useState, useMemo } from "react";
 import { Users, FileText, Wallet, CheckCircle2, Clock, ClipboardCheck } from "lucide-react";
 import { useData } from "../../../lib/DataContext";
-import { Card } from "../../../components/ui";
-import { fmtMoney, generateAllDeclarations } from "../../../lib/helpers";
+import { Card, Modal, Badge } from "../../../components/ui";
+import { fmtMoney, fmtDate, generateAllDeclarations, declarationRemaining, declarationPaid } from "../../../lib/helpers";
+
+function DetailModal({ title, columns, rows, totalLabel, totalValue, onClose }) {
+  return (
+    <Modal open onClose={onClose} title={title} wide>
+      <div className="flex flex-col gap-3">
+        {totalLabel && (
+          <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 rounded-lg px-3 py-2">
+            <span className="text-sm text-slate-600 dark:text-slate-300">{totalLabel}</span>
+            <span className="font-bold text-navy dark:text-[#e3c65a]">{totalValue}</span>
+          </div>
+        )}
+        <div className="overflow-x-auto max-h-[60vh]">
+          <table className="w-full text-sm">
+            <thead className="text-slate-500 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
+              <tr>{columns.map((c) => <th key={c.header} className="px-3 py-2 text-right whitespace-nowrap">{c.header}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-b border-slate-100 dark:border-slate-700/50">
+                  {columns.map((c) => <td key={c.header} className="px-3 py-1.5 whitespace-nowrap">{c.render(r)}</td>)}
+                </tr>
+              ))}
+              {rows.length === 0 && <tr><td colSpan={columns.length} className="text-center py-6 text-slate-400">لا يوجد بيانات</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 export default function DashboardPage() {
   const data = useData();
   const [mode, setMode] = useState("month");
+  const [detail, setDetail] = useState(null); // key of active detail modal
   const now = new Date();
 
   const inScope = (dateStr) => {
@@ -24,10 +55,104 @@ export default function DashboardPage() {
   const pending = totalInvoices - collected;
   const totalExpenses = expensesScope.reduce((s, e) => s + Number(e.amount || 0), 0);
   const declarations = useMemo(() => generateAllDeclarations(data.clients, data.declarationStatus), [data.clients, data.declarationStatus]);
-  const pendingDeclarations = declarations.filter((d) => d.status !== "مكتمل").length;
+  const lateDeclarations = declarations.filter((d) => d.status === "متأخر");
+  const outstandingDeclarations = declarations.filter((d) => declarationRemaining(d) > 0);
+  const outstandingTotal = outstandingDeclarations.reduce((s, d) => s + declarationRemaining(d), 0);
 
-  const stat = (label, value, color, Icon) => (
-    <Card className="p-4 flex items-center gap-3">
+  const clientName = (id) => data.clients.find((c) => c.id === id)?.name || "—";
+
+  // تعريف تفاصيل كل كارت (الأعمدة والصفوف اللي هتظهر لما تدوس عليه)
+  const detailConfigs = {
+    clients: {
+      title: "تفاصيل العملاء",
+      rows: data.clients,
+      columns: [
+        { header: "الاسم", render: (c) => c.name },
+        { header: "نوع المنشأة", render: (c) => c.entity_type },
+        { header: "ق.م", render: (c) => c.vat_status },
+        { header: "التليفون", render: (c) => c.phone || "-" },
+        { header: "تاريخ التسجيل", render: (c) => fmtDate(c.reg_date) },
+      ],
+    },
+    invoices: {
+      title: "تفاصيل الفواتير",
+      rows: invoicesScope,
+      totalLabel: "إجمالي الفواتير",
+      totalValue: fmtMoney(totalInvoices),
+      columns: [
+        { header: "العميل", render: (i) => clientName(i.client_id) },
+        { header: "المبلغ", render: (i) => fmtMoney(i.amount) },
+        { header: "الحالة", render: (i) => <Badge color={i.status === "مدفوعة" ? "green" : i.status === "جزئي" ? "blue" : "amber"}>{i.status}</Badge> },
+        { header: "التاريخ", render: (i) => fmtDate(i.date) },
+      ],
+    },
+    collected: {
+      title: "الفواتير المحصّلة",
+      rows: invoicesScope.filter((i) => i.status === "مدفوعة"),
+      totalLabel: "إجمالي المحصّل",
+      totalValue: fmtMoney(collected),
+      columns: [
+        { header: "العميل", render: (i) => clientName(i.client_id) },
+        { header: "المبلغ", render: (i) => fmtMoney(i.amount) },
+        { header: "التاريخ", render: (i) => fmtDate(i.date) },
+      ],
+    },
+    pending: {
+      title: "الفواتير المعلّقة",
+      rows: invoicesScope.filter((i) => i.status !== "مدفوعة"),
+      totalLabel: "إجمالي المعلّق",
+      totalValue: fmtMoney(pending),
+      columns: [
+        { header: "العميل", render: (i) => clientName(i.client_id) },
+        { header: "المبلغ", render: (i) => fmtMoney(i.amount) },
+        { header: "الحالة", render: (i) => <Badge color={i.status === "جزئي" ? "blue" : "amber"}>{i.status}</Badge> },
+        { header: "التاريخ", render: (i) => fmtDate(i.date) },
+      ],
+    },
+    expenses: {
+      title: "تفاصيل المصروفات",
+      rows: expensesScope,
+      totalLabel: "إجمالي المصروفات",
+      totalValue: fmtMoney(totalExpenses),
+      columns: [
+        { header: "التصنيف", render: (e) => e.category },
+        { header: "المبلغ", render: (e) => fmtMoney(e.amount) },
+        { header: "مرتبط بعميل", render: (e) => (e.client_id ? clientName(e.client_id) : "-") },
+        { header: "التاريخ", render: (e) => fmtDate(e.date) },
+      ],
+    },
+    lateDeclarations: {
+      title: "الإقرارات المتأخرة",
+      rows: lateDeclarations,
+      columns: [
+        { header: "العميل", render: (d) => d.clientName },
+        { header: "نوع الإقرار", render: (d) => d.type },
+        { header: "الفترة", render: (d) => d.period },
+        { header: "الموعد النهائي", render: (d) => fmtDate(d.deadline) },
+      ],
+    },
+    outstandingAmounts: {
+      title: "مبالغ إقرارات متأخرة",
+      rows: outstandingDeclarations,
+      totalLabel: "إجمالي المستحق",
+      totalValue: fmtMoney(outstandingTotal),
+      columns: [
+        { header: "العميل", render: (d) => d.clientName },
+        { header: "نوع الإقرار", render: (d) => d.type },
+        { header: "الفترة", render: (d) => d.period },
+        { header: "الحالة", render: (d) => <Badge color={d.status === "متأخر" ? "red" : "amber"}>{d.status}</Badge> },
+        { header: "مبلغ الإقرار", render: (d) => fmtMoney(d.amount || 0) },
+        { header: "المدفوع", render: (d) => fmtMoney(declarationPaid(d)) },
+        { header: "المتبقي", render: (d) => <span className="font-semibold text-rose-600">{fmtMoney(declarationRemaining(d))}</span> },
+      ],
+    },
+  };
+
+  const stat = (label, value, color, Icon, key) => (
+    <Card
+      className="p-4 flex items-center gap-3 cursor-pointer hover:ring-2 hover:ring-slate-300 dark:hover:ring-slate-600 transition"
+      onClick={() => setDetail(key)}
+    >
       <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + "22", color }}><Icon size={20} /></div>
       <div className="min-w-0">
         <div className="text-slate-500 dark:text-slate-400 text-xs">{label}</div>
@@ -35,6 +160,8 @@ export default function DashboardPage() {
       </div>
     </Card>
   );
+
+  const active = detail ? detailConfigs[detail] : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -45,15 +172,28 @@ export default function DashboardPage() {
           <button onClick={() => setMode("year")} className={`px-3 py-1.5 rounded-md ${mode === "year" ? "bg-white dark:bg-slate-900 shadow font-semibold" : ""}`}>سنوي</button>
         </div>
       </div>
+      <p className="text-xs text-slate-400 -mt-2">دوس على أي كارت لعرض التفاصيل اللي وراه</p>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {stat("عدد العملاء", data.clients.length, "#173B5E", Users)}
-        {stat("عدد الفواتير", invoicesScope.length, "#0ea5e9", FileText)}
-        {stat("إجمالي الفواتير", fmtMoney(totalInvoices), "#173B5E", Wallet)}
-        {stat("المحصّل", fmtMoney(collected), "#16a34a", CheckCircle2)}
-        {stat("المعلّق", fmtMoney(pending), "#d97706", Clock)}
-        {stat("إجمالي المصروفات", fmtMoney(totalExpenses), "#e11d48", Wallet)}
-        {stat("إقرارات متأخرة", pendingDeclarations, "#C9A227", ClipboardCheck)}
+        {stat("عدد العملاء", data.clients.length, "#173B5E", Users, "clients")}
+        {stat("عدد الفواتير", invoicesScope.length, "#0ea5e9", FileText, "invoices")}
+        {stat("إجمالي الفواتير", fmtMoney(totalInvoices), "#173B5E", Wallet, "invoices")}
+        {stat("المحصّل", fmtMoney(collected), "#16a34a", CheckCircle2, "collected")}
+        {stat("المعلّق", fmtMoney(pending), "#d97706", Clock, "pending")}
+        {stat("إجمالي المصروفات", fmtMoney(totalExpenses), "#e11d48", Wallet, "expenses")}
+        {stat("إقرارات متأخرة", lateDeclarations.length, "#C9A227", ClipboardCheck, "lateDeclarations")}
+        {stat("مبالغ إقرارات متأخرة", fmtMoney(outstandingTotal), "#e11d48", Wallet, "outstandingAmounts")}
       </div>
+
+      {active && (
+        <DetailModal
+          title={active.title}
+          columns={active.columns}
+          rows={active.rows}
+          totalLabel={active.totalLabel}
+          totalValue={active.totalValue}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   );
 }
