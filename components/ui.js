@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { X, Copy, Check, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
 
-export const Card = ({ children, className = "" }) => (
-  <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${className}`}>{children}</div>
+export const Card = ({ children, className = "", ...rest }) => (
+  <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${className}`} {...rest}>{children}</div>
 );
 
 export const Btn = ({ children, onClick, variant = "primary", className = "", type = "button", disabled }) => {
