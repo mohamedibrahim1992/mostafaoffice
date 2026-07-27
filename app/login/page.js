@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Phone, MapPin, Lock } from "lucide-react";
 import { useAuth } from "../../lib/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
-import { USERS, defaultRouteForRole } from "../../lib/constants";
+import { defaultRouteForRole } from "../../lib/constants";
 
 function OfficeLogo({ logo }) {
   const [error, setError] = useState(false);
@@ -26,7 +26,7 @@ function OfficeLogo({ logo }) {
 function StaffLoginWidget() {
   const { login, profile, loading } = useAuth();
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,9 +35,10 @@ function StaffLoginWidget() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!username) { setErr("اختر الاسم"); return; }
+    if (!email) { setErr("اكتب الإيميل"); return; }
     setBusy(true);
-    const { error } = await login(username, password);
+    const finalEmail = email.includes("@") ? email : `${email}@mostafa-hamza.office`;
+    const { error } = await login(finalEmail, password);
     if (error) { setBusy(false); setErr(error); return; }
     // التوجيه بيحصل من الـ useEffect فوق بعد ما الملف الشخصي (ودوره) يتحمّل فعليًا
   };
@@ -50,11 +51,8 @@ function StaffLoginWidget() {
           <span className="text-[10px]">دخول الموظفين</span>
         </div>
         <form onSubmit={submit} className="flex flex-col gap-1.5">
-          <select value={username} onChange={(e) => { setUsername(e.target.value); setErr(""); }} required
-            className="text-[11px] px-1.5 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-navy">
-            <option value="">الاسم</option>
-            {USERS.map((u) => <option key={u.username} value={u.username}>{u.name}</option>)}
-          </select>
+          <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setErr(""); }} required placeholder="الإيميل"
+            className="text-[11px] px-1.5 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-navy" dir="ltr" />
           <input type="password" value={password} onChange={(e) => { setPassword(e.target.value); setErr(""); }} required placeholder="كلمة المرور"
             className="text-[11px] px-1.5 py-1 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-navy" />
           {err && <div className="text-[10px] text-rose-600">{err}</div>}
