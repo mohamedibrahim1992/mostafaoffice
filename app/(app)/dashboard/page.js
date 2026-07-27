@@ -6,9 +6,27 @@ import { Card, Modal, Badge } from "../../../components/ui";
 import { fmtMoney, fmtDate, generateAllDeclarations, declarationRemaining, declarationPaid } from "../../../lib/helpers";
 
 function DetailModal({ title, columns, rows, totalLabel, totalValue, onClose }) {
+  const [filters, setFilters] = useState({});
+  const filterableCols = columns.filter((c) => c.filterable);
+  const filteredRows = rows.filter((r) => filterableCols.every((c) => !filters[c.header] || c.value(r) === filters[c.header]));
+
   return (
     <Modal open onClose={onClose} title={title} wide>
       <div className="flex flex-col gap-3">
+        {filterableCols.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {filterableCols.map((c) => {
+              const options = [...new Set(rows.map((r) => c.value(r)).filter((v) => v !== null && v !== undefined && v !== ""))];
+              return (
+                <select key={c.header} value={filters[c.header] || ""} onChange={(e) => setFilters((f) => ({ ...f, [c.header]: e.target.value }))}
+                  className="text-xs px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200">
+                  <option value="">{c.header}: الكل</option>
+                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              );
+            })}
+          </div>
+        )}
         {totalLabel && (
           <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/40 rounded-lg px-3 py-2">
             <span className="text-sm text-slate-600 dark:text-slate-300">{totalLabel}</span>
@@ -21,12 +39,12 @@ function DetailModal({ title, columns, rows, totalLabel, totalValue, onClose }) 
               <tr>{columns.map((c) => <th key={c.header} className="px-3 py-2 text-right whitespace-nowrap">{c.header}</th>)}</tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {filteredRows.map((r, i) => (
                 <tr key={i} className="border-b border-slate-100 dark:border-slate-700/50">
                   {columns.map((c) => <td key={c.header} className="px-3 py-1.5 whitespace-nowrap">{c.render(r)}</td>)}
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={columns.length} className="text-center py-6 text-slate-400">لا يوجد بيانات</td></tr>}
+              {filteredRows.length === 0 && <tr><td colSpan={columns.length} className="text-center py-6 text-slate-400">لا يوجد بيانات</td></tr>}
             </tbody>
           </table>
         </div>
@@ -68,8 +86,8 @@ export default function DashboardPage() {
       rows: data.clients,
       columns: [
         { header: "الاسم", render: (c) => c.name },
-        { header: "نوع المنشأة", render: (c) => c.entity_type },
-        { header: "ق.م", render: (c) => c.vat_status },
+        { header: "نوع المنشأة", render: (c) => c.entity_type, filterable: true, value: (c) => c.entity_type },
+        { header: "ق.م", render: (c) => c.vat_status, filterable: true, value: (c) => c.vat_status },
         { header: "التليفون", render: (c) => c.phone || "-" },
         { header: "تاريخ التسجيل", render: (c) => fmtDate(c.reg_date) },
       ],
@@ -80,9 +98,9 @@ export default function DashboardPage() {
       totalLabel: "إجمالي الفواتير",
       totalValue: fmtMoney(totalInvoices),
       columns: [
-        { header: "العميل", render: (i) => clientName(i.client_id) },
+        { header: "العميل", render: (i) => clientName(i.client_id), filterable: true, value: (i) => clientName(i.client_id) },
         { header: "المبلغ", render: (i) => fmtMoney(i.amount) },
-        { header: "الحالة", render: (i) => <Badge color={i.status === "مدفوعة" ? "green" : i.status === "جزئي" ? "blue" : "amber"}>{i.status}</Badge> },
+        { header: "الحالة", render: (i) => <Badge color={i.status === "مدفوعة" ? "green" : i.status === "جزئي" ? "blue" : "amber"}>{i.status}</Badge>, filterable: true, value: (i) => i.status },
         { header: "التاريخ", render: (i) => fmtDate(i.date) },
       ],
     },
@@ -92,7 +110,7 @@ export default function DashboardPage() {
       totalLabel: "إجمالي المحصّل",
       totalValue: fmtMoney(collected),
       columns: [
-        { header: "العميل", render: (i) => clientName(i.client_id) },
+        { header: "العميل", render: (i) => clientName(i.client_id), filterable: true, value: (i) => clientName(i.client_id) },
         { header: "المبلغ", render: (i) => fmtMoney(i.amount) },
         { header: "التاريخ", render: (i) => fmtDate(i.date) },
       ],
@@ -103,9 +121,9 @@ export default function DashboardPage() {
       totalLabel: "إجمالي المعلّق",
       totalValue: fmtMoney(pending),
       columns: [
-        { header: "العميل", render: (i) => clientName(i.client_id) },
+        { header: "العميل", render: (i) => clientName(i.client_id), filterable: true, value: (i) => clientName(i.client_id) },
         { header: "المبلغ", render: (i) => fmtMoney(i.amount) },
-        { header: "الحالة", render: (i) => <Badge color={i.status === "جزئي" ? "blue" : "amber"}>{i.status}</Badge> },
+        { header: "الحالة", render: (i) => <Badge color={i.status === "جزئي" ? "blue" : "amber"}>{i.status}</Badge>, filterable: true, value: (i) => i.status },
         { header: "التاريخ", render: (i) => fmtDate(i.date) },
       ],
     },
@@ -115,9 +133,9 @@ export default function DashboardPage() {
       totalLabel: "إجمالي المصروفات",
       totalValue: fmtMoney(totalExpenses),
       columns: [
-        { header: "التصنيف", render: (e) => e.category },
+        { header: "التصنيف", render: (e) => e.category, filterable: true, value: (e) => e.category },
         { header: "المبلغ", render: (e) => fmtMoney(e.amount) },
-        { header: "مرتبط بعميل", render: (e) => (e.client_id ? clientName(e.client_id) : "-") },
+        { header: "مرتبط بعميل", render: (e) => (e.client_id ? clientName(e.client_id) : "-"), filterable: true, value: (e) => (e.client_id ? clientName(e.client_id) : "") },
         { header: "التاريخ", render: (e) => fmtDate(e.date) },
       ],
     },
@@ -125,8 +143,8 @@ export default function DashboardPage() {
       title: "الإقرارات المتأخرة",
       rows: lateDeclarations,
       columns: [
-        { header: "العميل", render: (d) => d.clientName },
-        { header: "نوع الإقرار", render: (d) => d.type },
+        { header: "العميل", render: (d) => d.clientName, filterable: true, value: (d) => d.clientName },
+        { header: "نوع الإقرار", render: (d) => d.type, filterable: true, value: (d) => d.type },
         { header: "الفترة", render: (d) => d.period },
         { header: "الموعد النهائي", render: (d) => fmtDate(d.deadline) },
       ],
@@ -137,10 +155,10 @@ export default function DashboardPage() {
       totalLabel: "إجمالي المستحق",
       totalValue: fmtMoney(outstandingTotal),
       columns: [
-        { header: "العميل", render: (d) => d.clientName },
-        { header: "نوع الإقرار", render: (d) => d.type },
+        { header: "العميل", render: (d) => d.clientName, filterable: true, value: (d) => d.clientName },
+        { header: "نوع الإقرار", render: (d) => d.type, filterable: true, value: (d) => d.type },
         { header: "الفترة", render: (d) => d.period },
-        { header: "الحالة", render: (d) => <Badge color={d.status === "متأخر" ? "red" : "amber"}>{d.status}</Badge> },
+        { header: "الحالة", render: (d) => <Badge color={d.status === "متأخر" ? "red" : "amber"}>{d.status}</Badge>, filterable: true, value: (d) => d.status },
         { header: "مبلغ الإقرار", render: (d) => fmtMoney(d.amount || 0) },
         { header: "المدفوع", render: (d) => fmtMoney(declarationPaid(d)) },
         { header: "المتبقي", render: (d) => <span className="font-semibold text-rose-600">{fmtMoney(declarationRemaining(d))}</span> },
@@ -186,6 +204,7 @@ export default function DashboardPage() {
 
       {active && (
         <DetailModal
+          key={detail}
           title={active.title}
           columns={active.columns}
           rows={active.rows}

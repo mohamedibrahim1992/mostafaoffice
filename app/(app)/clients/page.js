@@ -143,6 +143,20 @@ export default function ClientsPage() {
     XLSX.writeFile(wb, "عملاء_مكتب_مصطفى_حمزة.xlsx");
   };
 
+  const norm = (s) => (s || "").toString().trim().toLowerCase();
+  const findDuplicate = (newClient) => data.clients.find((existing) =>
+    (newClient.name && norm(existing.name) === norm(newClient.name)) ||
+    (newClient.tax_number && norm(existing.tax_number) === norm(newClient.tax_number)) ||
+    (newClient.national_id && norm(existing.national_id) === norm(newClient.national_id))
+  );
+  const duplicateReason = (newClient, existing) => {
+    if (newClient.tax_number && norm(existing.tax_number) === norm(newClient.tax_number)) return "رقم ضريبي مكرر";
+    if (newClient.national_id && norm(existing.national_id) === norm(newClient.national_id)) return "رقم قومي مكرر";
+    return "اسم مكرر";
+  };
+
+  const [importReview, setImportReview] = useState(null); // { unique: [...], duplicates: [{row, existing, reason}] }
+
   const importExcel = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -172,8 +186,28 @@ export default function ClientsPage() {
         notes: r["ملاحظات"] || "",
       };
     });
-    if (newClients.length) await data.importClients(newClients);
+
+    const unique = [];
+    const duplicates = [];
+    newClients.forEach((row) => {
+      const existing = findDuplicate(row);
+      if (existing) duplicates.push({ row, existing, reason: duplicateReason(row, existing), include: false });
+      else unique.push(row);
+    });
+
+    if (duplicates.length === 0) {
+      if (unique.length) await data.importClients(unique);
+    } else {
+      setImportReview({ unique, duplicates });
+    }
     e.target.value = "";
+  };
+
+  const confirmImportReview = async () => {
+    const toInclude = importReview.duplicates.filter((d) => d.include).map((d) => d.row);
+    const all = [...importReview.unique, ...toInclude];
+    if (all.length) await data.importClients(all);
+    setImportReview(null);
   };
 
   return (
@@ -314,6 +348,56 @@ export default function ClientsPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!importReview} onClose={() => setImportReview(null)} title="بيانات مكررة في ملف الاستيراد" wide>
+        {importReview && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              {importReview.unique.length > 0 && <>هيتم استيراد <b>{importReview.unique.length}</b> عميل جديد من غير تكرار. </>}
+              لاقينا <b>{importReview.duplicates.length}</b> صف عليه تكرار مع عملاء موجودين بالفعل — حدد اللي عايز تضيفه رغم التكرار:
+            </p>
+            <div className="overflow-x-auto max-h-[50vh]">
+              <table className="w-full text-sm">
+                <thead className="text-slate-500 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800">
+                  <tr>
+                    <th className="px-2 py-2 text-right">إضافة؟</th>
+                    <th className="px-2 py-2 text-right">اسم الصف المستورد</th>
+                    <th className="px-2 py-2 text-right">تكرار مع (العميل الموجود)</th>
+                    <th className="px-2 py-2 text-right">سبب التكرار</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importReview.duplicates.map((d, idx) => (
+                    <tr key={idx} className="border-b border-slate-100 dark:border-slate-700/50">
+                      <td className="px-2 py-1.5">
+                        <input type="checkbox" checked={d.include} className="w-4 h-4 accent-navy"
+                          onChange={(e) => setImportReview((prev) => {
+                            const next = { ...prev, duplicates: [...prev.duplicates] };
+                            next.duplicates[idx] = { ...next.duplicates[idx], include: e.target.checked };
+                            return next;
+                          })} />
+                      </td>
+                      <td className="px-2 py-1.5 font-medium">{d.row.name}</td>
+                      <td className="px-2 py-1.5 text-slate-500">{d.existing.name}</td>
+                      <td className="px-2 py-1.5"><Badge color="amber">{d.reason}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex gap-2">
+                <button className="text-xs text-navy dark:text-[#e3c65a] hover:underline" onClick={() => setImportReview((p) => ({ ...p, duplicates: p.duplicates.map((d) => ({ ...d, include: true })) }))}>تحديد الكل</button>
+                <button className="text-xs text-slate-500 hover:underline" onClick={() => setImportReview((p) => ({ ...p, duplicates: p.duplicates.map((d) => ({ ...d, include: false })) }))}>إلغاء تحديد الكل</button>
+              </div>
+              <div className="flex gap-2">
+                <Btn variant="ghost" onClick={() => setImportReview(null)}>إلغاء الاستيراد بالكامل</Btn>
+                <Btn onClick={confirmImportReview}>تأكيد الاستيراد</Btn>
+              </div>
+            </div>
           </div>
         )}
       </Modal>

@@ -142,6 +142,18 @@ export default function DeclarationsPage() {
     setPayModal(null);
   };
 
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const uncompletedInView = rows.filter((d) => !d.completed);
+  const markAllComplete = async () => {
+    if (uncompletedInView.length === 0) return;
+    if (!confirm(`هل تريد تعليم ${uncompletedInView.length} إقرار من النتائج المفلترة كـ"مكتمل"؟`)) return;
+    setBulkBusy(true);
+    await Promise.all(uncompletedInView.map((d) => data.upsertDeclaration(d.key, {
+      completed: true, completed_by: profile.display_name, completed_at: new Date().toISOString(),
+    }, d.clientId)));
+    setBulkBusy(false);
+  };
+
   const types = [...new Set(all.map((d) => d.type))];
 
   return (
@@ -177,6 +189,11 @@ export default function DeclarationsPage() {
           <option value="مكتمل">مكتمل</option>
         </Select>
         <Input label="الشهر/السنة" placeholder="مثال: يناير أو 2025" value={fMonth} onChange={(e) => setFMonth(e.target.value)} className="min-w-[140px]" />
+        <div className="flex items-end">
+          <Btn variant="gold" onClick={markAllComplete} disabled={bulkBusy || uncompletedInView.length === 0}>
+            علّم الكل كمكتمل {uncompletedInView.length > 0 ? `(${uncompletedInView.length})` : ""}
+          </Btn>
+        </div>
       </Card>
 
       <Card className="overflow-x-auto">

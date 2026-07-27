@@ -1,13 +1,16 @@
 "use client";
 import { useState } from "react";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, Upload } from "lucide-react";
 import { useData } from "../../../lib/DataContext";
 import { Card, Btn, Input } from "../../../components/ui";
+
+const MAX_LOGO_BYTES = 400 * 1024; // 400KB — بتتخزن كنص داخل قاعدة البيانات، فلازم تفضل خفيفة
 
 export default function SettingsPage() {
   const data = useData();
   const [newCat, setNewCat] = useState("");
   const [office, setOffice] = useState(data.settings.office_info);
+  const [logoErr, setLogoErr] = useState("");
 
   const addCat = async () => {
     if (!newCat.trim()) return;
@@ -16,6 +19,23 @@ export default function SettingsPage() {
   };
   const removeCat = (c) => data.updateSettings({ expense_categories: data.settings.expense_categories.filter((x) => x !== c) });
   const saveOffice = () => data.updateSettings({ office_info: office });
+
+  const handleLogo = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoErr("");
+    if (file.size > MAX_LOGO_BYTES) { setLogoErr("حجم الصورة كبير جدًا — الحد الأقصى 400KB. جرب صورة أصغر."); return; }
+    const dataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+    const next = { ...office, logo: dataUrl };
+    setOffice(next);
+    await data.updateSettings({ office_info: next });
+  };
+
+  const removeLogo = async () => {
+    const next = { ...office, logo: "" };
+    setOffice(next);
+    await data.updateSettings({ office_info: next });
+  };
 
   const clearLog = async () => {
     if (!confirm("هل أنت متأكد من مسح سجل النشاط بالكامل؟ لا يمكن التراجع عن هذا الإجراء.")) return;
@@ -32,7 +52,27 @@ export default function SettingsPage() {
           <Input label="اسم المكتب" value={office.name || ""} onChange={(e) => setOffice({ ...office, name: e.target.value })} />
           <Input label="التليفون" value={office.phone || ""} onChange={(e) => setOffice({ ...office, phone: e.target.value })} />
           <Input label="العنوان" value={office.address || ""} onChange={(e) => setOffice({ ...office, address: e.target.value })} />
-          <Btn className="self-start" onClick={saveOffice}>حفظ</Btn>
+
+          <div>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 block mb-1.5">شعار المكتب</span>
+            <div className="flex items-center gap-3">
+              {office.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={office.logo} alt="الشعار" className="w-16 h-16 rounded-xl object-contain bg-white border border-slate-200 dark:border-slate-600 p-1" />
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-400 text-xs">بدون</div>
+              )}
+              <label className="cursor-pointer">
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogo} />
+                <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 cursor-pointer"><Upload size={14} /> رفع شعار</span>
+              </label>
+              {office.logo && <button onClick={removeLogo} className="text-xs text-rose-500 hover:underline">إزالة</button>}
+            </div>
+            {logoErr && <p className="text-xs text-rose-500 mt-1">{logoErr}</p>}
+            <p className="text-xs text-slate-400 mt-1">هيظهر تلقائيًا في صفحة تسجيل الدخول. صيغة صورة عادية (PNG/JPG)، حد أقصى 400KB.</p>
+          </div>
+
+          <Btn className="self-start" onClick={saveOffice}>حفظ بيانات المكتب</Btn>
         </div>
       </Card>
 

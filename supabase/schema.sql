@@ -143,7 +143,10 @@ create policy "profiles_select_all" on profiles for select using (auth.role() = 
 
 -- clients / invoices / declaration_status: كل الأدوار تقدر تشوف وتضيف وتعدل
 create policy "clients_all" on clients for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
-create policy "invoices_all" on invoices for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "invoices_select" on invoices for select using (auth.role() = 'authenticated');
+create policy "invoices_insert" on invoices for insert with check (auth.role() = 'authenticated');
+create policy "invoices_update" on invoices for update using (my_role() in ('مدير','أدمن'));
+create policy "invoices_delete" on invoices for delete using (auth.role() = 'authenticated');
 create policy "declaration_status_all" on declaration_status for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 -- expenses: المدير والأدمن فقط

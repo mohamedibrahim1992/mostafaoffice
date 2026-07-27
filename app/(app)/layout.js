@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../lib/AuthContext";
 import { DataProvider, useData } from "../../lib/DataContext";
-import { TABS_FULL } from "../../lib/constants";
+import { TABS_FULL, defaultRouteForRole } from "../../lib/constants";
 import { buildReminders } from "../../lib/helpers";
 
 const ICONS = {
@@ -26,6 +26,13 @@ function Shell({ children }) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  useEffect(() => {
+    if (!profile) return;
+    const currentKey = pathname.split("/")[1] || "dashboard";
+    const tab = TABS_FULL.find((t) => t.key === currentKey);
+    if (tab && !tab.roles.includes(profile.role)) router.replace(defaultRouteForRole(profile.role));
+  }, [profile, pathname, router]);
 
   if (!profile) return null;
 
