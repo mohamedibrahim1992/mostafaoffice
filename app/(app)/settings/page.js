@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { Plus, X, Trash2, Upload } from "lucide-react";
 import { useData } from "../../../lib/DataContext";
-import { Card, Btn, Input } from "../../../components/ui";
+import { Card, Btn, Input, TextArea } from "../../../components/ui";
+import { DEFAULT_PUBLIC_PAGE } from "../../../lib/constants";
 
 const MAX_LOGO_BYTES = 400 * 1024; // 400KB — بتتخزن كنص داخل قاعدة البيانات، فلازم تفضل خفيفة
 
@@ -11,6 +12,10 @@ export default function SettingsPage() {
   const [newCat, setNewCat] = useState("");
   const [office, setOffice] = useState(data.settings.office_info);
   const [logoErr, setLogoErr] = useState("");
+  const [page, setPage] = useState({ ...DEFAULT_PUBLIC_PAGE, ...(data.settings.public_page || {}) });
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeDesc, setNewTypeDesc] = useState("");
+  const [pageSaved, setPageSaved] = useState(false);
 
   const addCat = async () => {
     if (!newCat.trim()) return;
@@ -19,6 +24,23 @@ export default function SettingsPage() {
   };
   const removeCat = (c) => data.updateSettings({ expense_categories: data.settings.expense_categories.filter((x) => x !== c) });
   const saveOffice = () => data.updateSettings({ office_info: office });
+
+  const savePage = async () => {
+    await data.updateSettings({ public_page: page });
+    setPageSaved(true);
+    setTimeout(() => setPageSaved(false), 2000);
+  };
+  const addCompanyType = () => {
+    if (!newTypeName.trim()) return;
+    setPage({ ...page, company_types: [...(page.company_types || []), { name: newTypeName.trim(), desc: newTypeDesc.trim() }] });
+    setNewTypeName(""); setNewTypeDesc("");
+  };
+  const removeCompanyType = (i) => setPage({ ...page, company_types: page.company_types.filter((_, idx) => idx !== i) });
+  const updateCompanyType = (i, field, value) => {
+    const next = [...page.company_types];
+    next[i] = { ...next[i], [field]: value };
+    setPage({ ...page, company_types: next });
+  };
 
   const handleLogo = async (e) => {
     const file = e.target.files?.[0];
@@ -73,6 +95,66 @@ export default function SettingsPage() {
           </div>
 
           <Btn className="self-start" onClick={saveOffice}>حفظ بيانات المكتب</Btn>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <h3 className="font-bold mb-1 text-slate-800 dark:text-slate-100">محتوى صفحة الدخول العامة</h3>
+        <p className="text-xs text-slate-400 mb-3">النصوص اللي بتظهر لأي زائر في تبويبات (الرئيسية، أنواع الشركات، عن المكتب، تواصل معنا) قبل ما يسجل دخول.</p>
+
+        <div className="flex flex-col gap-5">
+          <div>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">الرئيسية</h4>
+            <div className="flex flex-col gap-2">
+              <TextArea label="الفقرة الأولى" rows={3} value={page.home_intro_1 || ""} onChange={(e) => setPage({ ...page, home_intro_1: e.target.value })} />
+              <TextArea label="الفقرة الثانية" rows={3} value={page.home_intro_2 || ""} onChange={(e) => setPage({ ...page, home_intro_2: e.target.value })} />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">عن المكتب</h4>
+            <div className="flex flex-col gap-2">
+              <TextArea label="مقدمة" rows={3} value={page.about_intro || ""} onChange={(e) => setPage({ ...page, about_intro: e.target.value })} />
+              <TextArea label="هدفنا الرئيسي" rows={2} value={page.about_goal || ""} onChange={(e) => setPage({ ...page, about_goal: e.target.value })} />
+              <TextArea label="رسالتنا" rows={2} value={page.about_message || ""} onChange={(e) => setPage({ ...page, about_message: e.target.value })} />
+              <TextArea label="رؤيتنا" rows={2} value={page.about_vision || ""} onChange={(e) => setPage({ ...page, about_vision: e.target.value })} />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">تواصل معنا</h4>
+            <div className="flex flex-col gap-2">
+              <Input label="إيميل التواصل (اختياري)" value={page.contact_email || ""} onChange={(e) => setPage({ ...page, contact_email: e.target.value })} dir="ltr" />
+              <Input label="مواعيد العمل" value={page.contact_hours || ""} onChange={(e) => setPage({ ...page, contact_hours: e.target.value })} />
+              <p className="text-xs text-slate-400">التليفون والعنوان بيتحطوا من قسم "بيانات المكتب" فوق.</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">أنواع الشركات</h4>
+            <div className="flex flex-col gap-2 mb-3">
+              {(page.company_types || []).map((c, i) => (
+                <div key={i} className="border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Input value={c.name} onChange={(e) => updateCompanyType(i, "name", e.target.value)} className="flex-1" />
+                    <button onClick={() => removeCompanyType(i)} className="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 p-1.5 rounded-md shrink-0"><Trash2 size={14} /></button>
+                  </div>
+                  <TextArea rows={2} value={c.desc} onChange={(e) => updateCompanyType(i, "desc", e.target.value)} />
+                </div>
+              ))}
+              {(!page.company_types || page.company_types.length === 0) && <p className="text-slate-400 text-sm">مفيش أنواع شركات مضافة.</p>}
+            </div>
+            <div className="border border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-2.5 flex flex-col gap-1.5">
+              <Input placeholder="اسم النوع الجديد" value={newTypeName} onChange={(e) => setNewTypeName(e.target.value)} />
+              <TextArea placeholder="الوصف" rows={2} value={newTypeDesc} onChange={(e) => setNewTypeDesc(e.target.value)} />
+              <Btn className="self-start" onClick={addCompanyType}><Plus size={14} /> إضافة نوع</Btn>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1 border-t border-slate-100 dark:border-slate-700">
+            <Btn className="self-start mt-3" onClick={savePage}>حفظ محتوى صفحة الدخول</Btn>
+            {pageSaved && <span className="text-emerald-600 text-xs mt-3">تم الحفظ ✓</span>}
+          </div>
         </div>
       </Card>
 
