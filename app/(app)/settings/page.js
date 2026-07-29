@@ -15,6 +15,8 @@ export default function SettingsPage() {
   const [page, setPage] = useState({ ...DEFAULT_PUBLIC_PAGE, ...(data.settings.public_page || {}) });
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeDesc, setNewTypeDesc] = useState("");
+  const [newServiceTitle, setNewServiceTitle] = useState("");
+  const [newServiceDesc, setNewServiceDesc] = useState("");
   const [pageSaved, setPageSaved] = useState(false);
 
   const addCat = async () => {
@@ -40,6 +42,18 @@ export default function SettingsPage() {
     const next = [...page.company_types];
     next[i] = { ...next[i], [field]: value };
     setPage({ ...page, company_types: next });
+  };
+
+  const addService = () => {
+    if (!newServiceTitle.trim()) return;
+    setPage({ ...page, services: [...(page.services || []), { title: newServiceTitle.trim(), desc: newServiceDesc.trim() }] });
+    setNewServiceTitle(""); setNewServiceDesc("");
+  };
+  const removeService = (i) => setPage({ ...page, services: page.services.filter((_, idx) => idx !== i) });
+  const updateService = (i, field, value) => {
+    const next = [...page.services];
+    next[i] = { ...next[i], [field]: value };
+    setPage({ ...page, services: next });
   };
 
   const handleLogo = async (e) => {
@@ -127,6 +141,27 @@ export default function SettingsPage() {
               <Input label="إيميل التواصل (اختياري)" value={page.contact_email || ""} onChange={(e) => setPage({ ...page, contact_email: e.target.value })} dir="ltr" />
               <Input label="مواعيد العمل" value={page.contact_hours || ""} onChange={(e) => setPage({ ...page, contact_hours: e.target.value })} />
               <p className="text-xs text-slate-400">التليفون والعنوان بيتحطوا من قسم "بيانات المكتب" فوق.</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">خدمات مكتبنا</h4>
+            <div className="flex flex-col gap-2 mb-3">
+              {(page.services || []).map((s, i) => (
+                <div key={i} className="border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Input placeholder="العنوان" value={s.title} onChange={(e) => updateService(i, "title", e.target.value)} className="flex-1" />
+                    <button onClick={() => removeService(i)} className="text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 p-1.5 rounded-md shrink-0"><Trash2 size={14} /></button>
+                  </div>
+                  <TextArea placeholder="البيانات" rows={2} value={s.desc} onChange={(e) => updateService(i, "desc", e.target.value)} />
+                </div>
+              ))}
+              {(!page.services || page.services.length === 0) && <p className="text-slate-400 text-sm">مفيش خدمات مضافة لسه.</p>}
+            </div>
+            <div className="border border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-2.5 flex flex-col gap-1.5">
+              <Input placeholder="عنوان الخدمة الجديدة" value={newServiceTitle} onChange={(e) => setNewServiceTitle(e.target.value)} />
+              <TextArea placeholder="بيانات الخدمة" rows={2} value={newServiceDesc} onChange={(e) => setNewServiceDesc(e.target.value)} />
+              <Btn className="self-start" onClick={addService}><Plus size={14} /> إضافة خدمة</Btn>
             </div>
           </div>
 

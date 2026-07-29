@@ -1,13 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, MapPin, Lock, Building2, Info, MessageCircle, Home, LogIn, Mail, Clock, Briefcase } from "lucide-react";
+import { Phone, MapPin, Lock, Building2, Info, MessageCircle, Home, LogIn, Mail, Clock, Briefcase, Wrench } from "lucide-react";
 import { useAuth } from "../../lib/AuthContext";
 import { supabase } from "../../lib/supabaseClient";
 import { defaultRouteForRole, DEFAULT_PUBLIC_PAGE } from "../../lib/constants";
 
 const TABS = [
   { key: "home", label: "الرئيسية", icon: Home },
+  { key: "services", label: "خدمات مكتبنا", icon: Wrench },
   { key: "company-types", label: "أنواع الشركات", icon: Building2 },
   { key: "about", label: "عن المكتب", icon: Info },
   { key: "contact", label: "تواصل معنا", icon: MessageCircle },
@@ -147,6 +148,25 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {tab === "services" && (
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-1">خدمات مكتبنا</h2>
+            <p className="text-slate-400 text-sm mb-6">الخدمات اللي بنقدمها لعملائنا.</p>
+            {pp.services?.length ? (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {pp.services.map((s, i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h3 className="text-gold font-bold mb-1.5 text-sm">{s.title}</h3>
+                    <p className="text-slate-300 text-xs leading-6">{s.desc}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-sm">بيانات الخدمات هتظهر هنا أول ما يتم إضافتها من صفحة الإعدادات.</p>
+            )}
           </div>
         )}
 
